@@ -1,0 +1,10 @@
+[project]
+name = "wobbler"
+version = "0.1.0"
+description = "Trick the computer into staying awake"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "logging",
+    "mouse",
+]
