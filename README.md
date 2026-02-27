@@ -10,7 +10,7 @@ Keep the screen awake!
 ## Running
 
 ```bash
-uv run python -m wobbler
+uv run -m wobbler
 ```
 
 # TODO
