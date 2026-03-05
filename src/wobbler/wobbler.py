@@ -16,13 +16,13 @@
 """
 
 import ctypes
-import logging
+from loguru import logger
 import signal
 import sys
 import threading
 import time
 
-import mouse
+# import mouse
 
 INTERVAL = 4
 END = False
@@ -44,13 +44,25 @@ def handler(signum, frame) -> None:
     signame = signal.Signals(signum).name
 
     if signame == "SIGINT":
-        logging.info("User manually initiated shutdown using \"CTRL+C\"...")
+        logger.info("User manually initiated shutdown using \"CTRL+C\"...")
 
         global END
         END = True
 
         # set back to normal
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+
+def setup_logging():
+    # Remove the default handler (so you can configure your own)
+    logger.remove()
+    
+    # Add a console handler (for you to see)
+    logger.add(sys.stderr, level="INFO")
+    
+    # Add a file handler (for history)
+    # "rotation" creates a new file every 10MB or every day
+    # "retention" keeps logs for 10 days before deleting old ones
+    logger.add("logs/app.log", rotation="10 MB", retention="10 days", level="DEBUG")
 
 def interval_thread():
     """ Thread that runs alongside wobbler to handle user interactions """
@@ -59,10 +71,10 @@ def interval_thread():
         try:
             entry = int(input())
         except ValueError:
-            logging.error("Not an int!")
+            logger.error("Not an int!")
             entry = -1
         if entry <= 0:
-            logging.error("Must be a positive integer. Try again")
+            logger.error("Must be a positive integer. Try again")
         else:
             global INTERVAL
             INTERVAL = entry
@@ -70,7 +82,7 @@ def interval_thread():
 def wobble_thread():
     """ This operates on it's own timer to wobble the mouse by 50 pixels on a given interval """
     while not END:
-        logging.info("INITIATING WOBBLE")
+        logger.info("INITIATING WOBBLE")
         # mouse.move(50, 50, absolute=False, duration=0.1)
         # # mouse.move(-100,-100, absolute=False, duration=0.1)
         # mouse.move(-50, -50, absolute=False, duration=0.1)
@@ -83,11 +95,6 @@ def wobble_thread():
             c += 1
 
 def main():
-    # Initial Logger Settings
-    fmt_main = "%(asctime)s\t| %(levelname)s\t| %(message)s"
-    logging.basicConfig(format=fmt_main, level=logging.INFO,
-                datefmt="%Y-%m-%d %H:%M:%S")
-
     # Initialize Listener (for CTRL+C interrupts)
     signal.signal(signal.SIGINT, handler)
 
@@ -97,10 +104,9 @@ def main():
     # Break out into threads
     t1 = threading.Thread(target=wobble_thread)
     t1.start()
-    logging.info("WOBBLER LAUNCHED AT %d MINUTES", INTERVAL)
+    logger.info(f"WOBBLER LAUNCHED AT {INTERVAL} MINUTES")
     interval_thread()
     t1.join()
-
 
 if __name__ == "__main__":
     sys.exit(main())
