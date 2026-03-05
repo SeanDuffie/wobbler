@@ -56,8 +56,8 @@ def press_f15():
 
 
 class Wobbler:
-    def __init__(self, interval: int = 4):
-        self.interval_minutes = 4
+    def __init__(self, interval: int = 1):
+        self.interval_minutes = 1
         self.stop_event = threading.Event()
 
     def set_execution_state(self, enable: bool):
