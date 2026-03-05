@@ -2,113 +2,127 @@
     @author Sean Duffie
     @brief Main file for the wobbler.
 
-    The Wobbler was initially supposed to use the mouse package to wobble the mouse every certain
-    interval in minutes, and give the user an option to input a different value. However, I
-    learned that for some reason the scripted mouse movements don't reset the Windows sleep timer.
+The Wobbler was initially supposed to use the mouse package to wobble the mouse every certain
+interval in minutes, and give the user an option to input a different value. However, I
+learned that for some reason the scripted mouse movements don't reset the Windows sleep timer.
 
-    An alternative solution a found and implemented was setting the Windows ThreadExecutionState.
-    This can be done using the ctypes library and the commands:
-        - ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)  # lock
-        - ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)  # unlock
-    The documentation for this can be found at:
-        - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate
-    This is preferable to the original method because it doesn't require threads and it doesn't
-    interfere with standard user operation.
+An alternative solution a found and implemented was setting the Windows ThreadExecutionState.
+This can be done using the ctypes library and the commands:
+    - ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)  # lock
+    - ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)  # unlock
+The documentation for this can be found at:
+    - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate
+This is preferable to the original method because it doesn't require threads and it doesn't
+interfere with standard user operation.
 
 """
 
 import ctypes
 from loguru import logger
-import signal
 import sys
 import threading
 import time
 
 # import mouse
 
-INTERVAL = 4
-END = False
+# Windows API Constants
+ES_CONTINUOUS = 0x80000000
+ES_SYSTEM_REQUIRED = 0x00000001
+ES_DISPLAY_REQUIRED = 0x00000002
 
-def handler(signum, frame) -> None:
-    """This function will handle any system interrupts that we decide to use
-    It relies on the "signal" python library (see documentation below)
-    https://docs.python.org/3/library/signal.html
+# Virtual Key code for F15 (registers as activity, but rarely affects applications)
+VK_F15 = 0x7E
+KEYEVENTF_KEYUP = 0x0002
 
-    TODO: Add more handling so that the errors can return more information
-
-    Args:
-        signum (int): number associated with interrupt
-        frame (frame): location that the interrupt came from
-        signame (str): reads the name of the interrupt to the user
-    Returns:
-        None
-    """
-    signame = signal.Signals(signum).name
-
-    if signame == "SIGINT":
-        logger.info("User manually initiated shutdown using \"CTRL+C\"...")
-
-        global END
-        END = True
-
-        # set back to normal
-        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
 
 def setup_logging():
     # Remove the default handler (so you can configure your own)
     logger.remove()
-    
+
     # Add a console handler (for you to see)
     logger.add(sys.stderr, level="INFO")
-    
+
     # Add a file handler (for history)
     # "rotation" creates a new file every 10MB or every day
     # "retention" keeps logs for 10 days before deleting old ones
     logger.add("logs/app.log", rotation="10 MB", retention="10 days", level="DEBUG")
 
-def interval_thread():
-    """ Thread that runs alongside wobbler to handle user interactions """
-    while not END:
-        print("Enter in terminal the amount of minutes between wobbles: ")
-        try:
-            entry = int(input())
-        except ValueError:
-            logger.error("Not an int!")
-            entry = -1
-        if entry <= 0:
-            logger.error("Must be a positive integer. Try again")
+
+def press_f15():
+    """Simulates a hardware-level F15 key press and release using ctypes."""
+    ctypes.windll.user32.keybd_event(VK_F15, 0, 0, 0)  # Press
+    time.sleep(0.05)
+    ctypes.windll.user32.keybd_event(VK_F15, 0, KEYEVENTF_KEYUP, 0)  # Release
+
+
+class Wobbler:
+    def __init__(self, interval: int = 4):
+        self.interval_minutes = 4
+        self.stop_event = threading.Event()
+
+    def set_execution_state(self, enable: bool):
+        """Toggles the Windows ThreadExecutionState."""
+        if enable:
+            state = ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+            ctypes.windll.kernel32.SetThreadExecutionState(state)
+            logger.debug("Execution state lock requested.")
         else:
-            global INTERVAL
-            INTERVAL = entry
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            logger.debug("Execution state unlocked.")
 
-def wobble_thread():
-    """ This operates on it's own timer to wobble the mouse by 50 pixels on a given interval """
-    while not END:
-        logger.info("INITIATING WOBBLE")
-        # mouse.move(50, 50, absolute=False, duration=0.1)
-        # # mouse.move(-100,-100, absolute=False, duration=0.1)
-        # mouse.move(-50, -50, absolute=False, duration=0.1)
+    def wobble_loop(self):
+        """Background loop that presses F15 at the given interval."""
+        self.set_execution_state(True)
 
-        # Delays for [INTERVAL] amount of minutes, [INTERVAL] seconds per sleep
-        # Having more delays for shorter times each makes a more responsive UI
-        c = 0
-        while not END and c < 60:
-            time.sleep(INTERVAL)
-            c += 1
+        while not self.stop_event.is_set():
+            logger.info("Sending activity signal (F15)...")
+            press_f15()
 
-def main():
-    # Initialize Listener (for CTRL+C interrupts)
-    signal.signal(signal.SIGINT, handler)
+            # mouse.move(50, 50, absolute=False, duration=0.1)
+            # # mouse.move(-100,-100, absolute=False, duration=0.1)
+            # mouse.move(-50, -50, absolute=False, duration=0.1)
 
-    # prevent
-    ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)
+            # Wait in 1-second increments for a highly responsive shutdown
+            for _ in range(self.interval_minutes * 60):
+                if self.stop_event.is_set():
+                    break
+                time.sleep(1)
 
-    # Break out into threads
-    t1 = threading.Thread(target=wobble_thread)
-    t1.start()
-    logger.info(f"WOBBLER LAUNCHED AT {INTERVAL} MINUTES")
-    interval_thread()
-    t1.join()
+    def start(self):
+        setup_logging()
+        logger.info(
+            f"WOBBLER LAUNCHED AT {self.interval_minutes} MINUTES"
+        )  # Daemon thread ensures it dies if the main thread crashes
+        wobble_thread = threading.Thread(target=self.wobble_loop, daemon=True)
+        wobble_thread.start()
+
+        # Main thread handles user input and graceful shutdown via KeyboardInterrupt
+        try:
+            while True:
+                user_input = input(
+                    f"Current interval: {self.interval_minutes}m. Enter new interval (or CTRL+C to quit):\n"
+                )
+                try:
+                    new_interval = int(user_input)
+                    if new_interval > 0:
+                        self.interval_minutes = new_interval
+                        logger.info(
+                            f"Interval updated to {self.interval_minutes} minutes."
+                        )
+                    else:
+                        logger.error("Must be a positive integer. Try again.")
+                except ValueError:
+                    logger.error("Not an integer! Try again.")
+
+        except KeyboardInterrupt:
+            logger.info("User manually initiated shutdown using CTRL+C...")
+
+        finally:
+            self.stop_event.set()  # Signal the background thread to stop
+            self.set_execution_state(False)  # Release the Windows lock
+            wobble_thread.join()  # Wait for thread to finish cleanly
+            logger.info("Shutdown complete.")
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(Wobbler().start())

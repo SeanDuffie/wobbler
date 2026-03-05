@@ -5,10 +5,7 @@ Keep the screen awake! Set an active flag in the OS registry, and wiggle the mou
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
-- [TODO](#todo)
-  - [Features](#features)
-  - [Bugs](#bugs)
-- [Updating README.md Table Of Contents (TOC)](#updating-readmemd-table-of-contents-toc)
+- [Summary](#summary)
 - [🛠 Features \& Modern Choices](#-features--modern-choices)
 - [📂 Project Structure](#-project-structure)
 - [Initial Setup for a New Project](#initial-setup-for-a-new-project)
@@ -19,23 +16,25 @@ Keep the screen awake! Set an active flag in the OS registry, and wiggle the mou
   - [📦 Building the Executable](#-building-the-executable)
   - [⚙️ VS Code Integration](#️-vs-code-integration)
   - [🛑 Important Notes](#-important-notes)
+- [Updating README.md Table Of Contents (TOC)](#updating-readmemd-table-of-contents-toc)
+- [TODO](#todo)
+  - [Features](#features)
+  - [Bugs](#bugs)
 
-## TODO
+## Summary
 
-### Features
+The Wobbler was initially supposed to use the mouse package to wobble the mouse every certain
+interval in minutes, and give the user an option to input a different value. However, I
+learned that for some reason the scripted mouse movements don't reset the Windows sleep timer.
 
-- [ ] Add a config to enable or disable the mouse wiggle
-- [ ] Add a way to remind the user to not leave it running
-
-### Bugs
-
-TODO
-
-## Updating README.md Table Of Contents (TOC)
-
-1. Open the Command Palette (`Ctrl+Shift+P`).
-2. Select `Markdown All in One: Create Table of Contents` to insert a TOC.
-3. It will automatically update every time the file is saved.
+An alternative solution a found and implemented was setting the Windows ThreadExecutionState.
+This can be done using the ctypes library and the commands:
+    - `ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)`  # lock
+    - `ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)`  # unlock
+The documentation for this can be found at:
+    - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate
+This is preferable to the original method because it doesn't require threads and it doesn't
+interfere with standard user operation.
 
 ## 🛠 Features & Modern Choices
 | Feature |	Tool / Choice |	Why? |
@@ -143,3 +142,20 @@ We have included a launch.json that:
 2. ***ALWAYS*** commit uv.lock. It ensures everyone on the team has the exact same environment.
 
 3. ***Imports***: Always use absolute imports from the package root (e.g., from my_project.logic import ...).
+
+## Updating README.md Table Of Contents (TOC)
+
+1. Open the Command Palette (`Ctrl+Shift+P`).
+2. Select `Markdown All in One: Create Table of Contents` to insert a TOC.
+3. It will automatically update every time the file is saved.
+
+## TODO
+
+### Features
+
+- [ ] Add a config to enable or disable the mouse wiggle
+- [ ] Add a way to remind the user to not leave it running
+
+### Bugs
+
+TODO
