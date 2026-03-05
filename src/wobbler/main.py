@@ -1,4 +1,6 @@
-""" wobbler.py
+""" @file main.py
+    @author Sean Duffie
+    @brief Main file for the wobbler.
 
     The Wobbler was initially supposed to use the mouse package to wobble the mouse every certain
     interval in minutes, and give the user an option to input a different value. However, I
