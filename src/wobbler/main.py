@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 
-# import mouse
+import mouse
 
 # Windows API Constants
 ES_CONTINUOUS = 0x80000000
@@ -54,6 +54,16 @@ def press_f15():
     time.sleep(0.05)
     ctypes.windll.user32.keybd_event(VK_F15, 0, KEYEVENTF_KEYUP, 0)  # Release
 
+def wiggle(magnitude: int = 50, time: float = 0.1):
+    """ Wiggle the mouse by a certain amount.
+
+    Args:
+        magnitude (int): How many pixels to move.
+    """
+    mouse.move(magnitude, magnitude, absolute=False, duration=time)
+    # mouse.move(-100,-100, absolute=False, duration=0.1)
+    mouse.move(-magnitude, -magnitude, absolute=False, duration=time)
+
 
 class Wobbler:
     def __init__(self, interval: int = 1):
@@ -78,9 +88,7 @@ class Wobbler:
             logger.info("Sending activity signal (F15)...")
             press_f15()
 
-            # mouse.move(50, 50, absolute=False, duration=0.1)
-            # # mouse.move(-100,-100, absolute=False, duration=0.1)
-            # mouse.move(-50, -50, absolute=False, duration=0.1)
+            # wiggle()
 
             # Wait in 1-second increments for a highly responsive shutdown
             for _ in range(self.interval_minutes * 60):
