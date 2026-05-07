@@ -41,7 +41,11 @@ def setup_logging():
     logger.remove()
 
     # Add a console handler (for you to see)
-    logger.add(sys.stderr, level="INFO")
+    logger.add(
+        sys.stdout,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>Uptime: {extra[uptime]}</cyan> | {message}",
+        level="INFO",
+    )
 
     # Add a file handler (for history)
     # "rotation" creates a new file every 10MB or every day
@@ -72,6 +76,9 @@ class Wobbler:
         self.start_time = datetime.datetime.now()
         self.interval_minutes = 1
         self.stop_event = threading.Event()
+        logger.configure(
+            extra={"uptime": self.get_uptime()}
+        )
 
     def get_uptime(self) -> str:
         """Returns the uptime of the Wobbler as a string."""
@@ -102,10 +109,7 @@ class Wobbler:
         self.set_execution_state(True)
 
         while not self.stop_event.is_set():
-            uptime = self.get_uptime()
-            logger.info(
-                f"Uptime: {uptime}. Sending activity signal (F15)..."
-            )
+            logger.info(f"Sending activity signal (F15)...")
             press_f15()
 
             # wiggle()
@@ -128,9 +132,10 @@ class Wobbler:
         # Main thread handles user input and graceful shutdown via KeyboardInterrupt
         try:
             while True:
-                user_input = input(
+                logger.info(
                     f"Current interval: {self.interval_minutes}m. Enter new interval (or CTRL+C to quit):\n"
                 )
+                user_input = input()
                 try:
                     new_interval = int(user_input)
                     if new_interval > 0:
