@@ -74,6 +74,7 @@ def wiggle(magnitude: int = 50, time: int = 1):
 class Wobbler:
     def __init__(self, interval: int = 1):
         self.start_time = datetime.datetime.now()
+        self.last_time = 0
         self.interval_minutes = interval
         self.stop_event = threading.Event()
         logger.configure(
@@ -113,16 +114,17 @@ class Wobbler:
         self.set_execution_state(True)
 
         while not self.stop_event.is_set():
+            self.last_time = datetime.datetime.now()
             logger.info(f"Sending activity signal (F15)...")
             press_f15()
 
             # wiggle()
 
-            # Wait in 1-second increments for a highly responsive shutdown
-            for _ in range(self.interval_minutes * 60):
+            # Wait in 1/10-second increments for a highly responsive shutdown
+            while datetime.datetime.now() < self.last_time + datetime.timedelta(minutes=self.interval_minutes):
                 if self.stop_event.is_set():
                     break
-                time.sleep(1)
+                time.sleep(.1)
 
     def start(self):
         setup_logging()
