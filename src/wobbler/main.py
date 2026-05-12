@@ -74,10 +74,10 @@ def wiggle(magnitude: int = 50, time: int = 1):
 class Wobbler:
     def __init__(self, interval: int = 1):
         self.start_time = datetime.datetime.now()
-        self.interval_minutes = 1
+        self.interval_minutes = interval
         self.stop_event = threading.Event()
         logger.configure(
-            extra={"uptime": self.get_uptime()}
+            patcher=self.inject_uptime
         )
 
     def get_uptime(self) -> str:
@@ -85,7 +85,7 @@ class Wobbler:
         elapsed = datetime.datetime.now() - self.start_time
         days = elapsed.days
         hours, remainder = divmod(elapsed.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
+        minutes, _ = divmod(remainder, 60)
 
         if days > 0:
             return f"{days}d {hours}h {minutes}m"
@@ -93,6 +93,10 @@ class Wobbler:
             return f"{hours}h {minutes}m"
         else:
             return f"{minutes}m"
+
+    def inject_uptime(self, record):
+        """Loguru patcher to inject uptime into log records."""
+        record["extra"]["uptime"] = self.get_uptime()
 
     def set_execution_state(self, enable: bool):
         """Toggles the Windows ThreadExecutionState."""
