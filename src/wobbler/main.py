@@ -43,7 +43,7 @@ def setup_logging():
     # Add a console handler (for you to see)
     logger.add(
         sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>Uptime: {extra[uptime]}</cyan> | {message}",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>Uptime: {extra[uptime]}</cyan> | <yellow>Active: {extra[active]}</yellow>  | {message}",
         level="INFO",
     )
 
@@ -74,11 +74,12 @@ def wiggle(magnitude: int = 50, time: int = 1):
 class Wobbler:
     def __init__(self, interval: int = 1):
         self.start_time = datetime.datetime.now()
+        self.active_time = 0
         self.last_time = 0
         self.interval_minutes = interval
         self.stop_event = threading.Event()
         logger.configure(
-            patcher=self.inject_uptime
+            patcher=self.inject_time
         )
 
     def get_uptime(self) -> str:
@@ -95,9 +96,22 @@ class Wobbler:
         else:
             return f"{minutes}m"
 
-    def inject_uptime(self, record):
-        """Loguru patcher to inject uptime into log records."""
+    def get_active_time(self) -> str:
+        """Returns the active time of the Wobbler as a string. (Time not hibernating)"""
+        days, remainder = divmod(self.active_time, 1440)
+        hours, minutes = divmod(remainder, 60)
+
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        elif hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
+
+    def inject_time(self, record):
+        """Loguru patcher to inject uptime and active time into log records."""
         record["extra"]["uptime"] = self.get_uptime()
+        record["extra"]["active"] = self.get_active_time()
 
     def set_execution_state(self, enable: bool):
         """Toggles the Windows ThreadExecutionState."""
@@ -125,6 +139,8 @@ class Wobbler:
                 if self.stop_event.is_set():
                     break
                 time.sleep(.1)
+
+            self.active_time += self.interval_minutes
 
     def start(self):
         setup_logging()
